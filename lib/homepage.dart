@@ -163,6 +163,7 @@ class HomePage extends ConsumerWidget {
         color: Colors.white24,
       ),
       onChanged: (value) {
+
         dropdownValue = value as String;
 
       },
@@ -170,9 +171,9 @@ class HomePage extends ConsumerWidget {
   }
 
   Widget _movieListWidget() {
-    final List<Movie> _movies = [];
+    final List<Movie> _movies = _mainPageData.movies;
 
-    for (var i = 0; i < 20; i++) {
+    /*for (var i = 0; i < 20; i++) {
       _movies.add(Movie(
           name: "Hare Krsna",
           language: "En",
@@ -183,7 +184,7 @@ class HomePage extends ConsumerWidget {
           backdropPath: "dsgfrg",
           rating: 7.86,
           releaseDate: "2020"));
-    }
+    }*/
 
     if (_movies.isNotEmpty) {
       return ListView.builder(
