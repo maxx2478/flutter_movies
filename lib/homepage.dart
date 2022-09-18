@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -20,9 +21,15 @@ final mainPageDataControllerProvider =
   State<HomePage> createState() => _HomePageState();
 }*/
 
+final selectedMoviePosterURLProvider = StateProvider<String>((ref) {
+  final _movies = ref.watch(mainPageDataControllerProvider.state).movies;
+  return _movies.isNotEmpty ? _movies[0].posterURL() : "";
+});
+
 class HomePage extends ConsumerWidget {
   late double rootHeight;
   late double rootWidth;
+    var selectedMoviePosterURL;
 
   late MainPageDataController _mainPageDataController;
   late MainPageData _mainPageData;
@@ -39,12 +46,17 @@ class HomePage extends ConsumerWidget {
 
 
 
+    //observe data and state
     _mainPageDataController = watch(mainPageDataControllerProvider);
     _mainPageData = watch(mainPageDataControllerProvider.state);
 
 
+    selectedMoviePosterURL = watch(selectedMoviePosterURLProvider);
+
+
     _searchTextController = TextEditingController();
 
+    _searchTextController.text = _mainPageData.searchText;
 
 
     return Scaffold(
@@ -55,22 +67,22 @@ class HomePage extends ConsumerWidget {
         width: rootWidth,
         child: Stack(
           alignment: Alignment.center,
-          children: [_backgroundWidget(), foregroundWidget()],
+          children: [_backgroundWidget(watch), foregroundWidget(watch)],
         ),
       ),
     );
   }
 
-  Widget _backgroundWidget() {
+  Widget _backgroundWidget(ScopedReader watch) {
     return Container(
       height: rootHeight,
       width: rootWidth,
       decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10.0),
-          image: const DecorationImage(
+          image:  DecorationImage(
               fit: BoxFit.cover,
               image:
-                  NetworkImage('https://wallpaperaccess.com/full/187161.jpg'))),
+                  NetworkImage(selectedMoviePosterURL.state))),
       child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
           child: Container(
@@ -78,7 +90,7 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget foregroundWidget() {
+  Widget foregroundWidget(ScopedReader watch) {
     return Container(
       padding: EdgeInsets.fromLTRB(0, rootHeight * 0.02, 0, 0),
       width: rootWidth,
@@ -90,7 +102,7 @@ class HomePage extends ConsumerWidget {
           _topBarWidget(),
           Container(
             height: rootHeight * 0.83,
-            child: _movieListWidget(),
+            child: _movieListWidget(watch),
           )
         ],
       ),
@@ -118,26 +130,27 @@ class HomePage extends ConsumerWidget {
       height: rootHeight * 0.05,
       child: TextField(
         controller: _searchTextController,
-        onSubmitted: (input) {},
+        onSubmitted: (input) {
+          _mainPageDataController.searchMovies(input); },
         style: const TextStyle(color: Colors.white),
         textAlignVertical: TextAlignVertical.center,
         decoration: const InputDecoration(
             focusedBorder: InputBorder.none,
             border: InputBorder.none,
-            contentPadding: EdgeInsets.only(bottom: 7),
+            contentPadding: EdgeInsets.only(bottom: 12),
             prefixIcon: Icon(
               Icons.search,
               color: Colors.white24,
             ),
             hintStyle: TextStyle(color: Colors.white54),
             filled: false,
-            hintText: "Search"),
+            hintText: "Search Movies"),
       ),
     );
   }
 
   Widget _categoriesWidget() {
-    var filters = ['Popular', 'Upcoming', 'None'];
+    var filters = ['popular', 'upcoming', 'none'];
 
     return DropdownButton(
       items: filters.map((String item) {
@@ -145,12 +158,12 @@ class HomePage extends ConsumerWidget {
           value: item,
           child: Text(
             item,
-            style: const TextStyle(color: Colors.white24),
+            style: const TextStyle(color: Colors.white),
           ),
         );
       }).toList(),
       dropdownColor: Colors.black38,
-      value: dropdownValue,
+      value: _mainPageData.searchCategory,
       icon: const Padding(
         padding: EdgeInsets.all(6.0),
         child: Icon(
@@ -163,14 +176,13 @@ class HomePage extends ConsumerWidget {
         color: Colors.white24,
       ),
       onChanged: (value) {
-
-        dropdownValue = value as String;
+        value.toString().isNotEmpty ? _mainPageDataController.updateSearchCategory(value.toString()) :null;
 
       },
     );
   }
 
-  Widget _movieListWidget() {
+  Widget _movieListWidget(ScopedReader watch) {
     final List<Movie> _movies = _mainPageData.movies;
 
     /*for (var i = 0; i < 20; i++) {
@@ -187,14 +199,33 @@ class HomePage extends ConsumerWidget {
     }*/
 
     if (_movies.isNotEmpty) {
-      return ListView.builder(
+      return NotificationListener(
+          onNotification: (_onScrollNotification){
+            if(_onScrollNotification is ScrollEndNotification)
+              {
+                final before = _onScrollNotification.metrics.extentBefore;
+                final max = _onScrollNotification.metrics.maxScrollExtent;
+                if(before== max)
+                  {
+                    _mainPageDataController.getMovies();
+                    return true;
+                  }
+                return false;
+
+              }
+            return false;
+          },
+          child: ListView.builder(
           itemCount: _movies.length,
           itemBuilder: (BuildContext context, int count) {
             return Padding(
               padding: EdgeInsets.symmetric(
-                  vertical: rootHeight * 0.01, horizontal: 0),
+                  vertical: rootHeight * 0.003, horizontal: 0),
               child: GestureDetector(
                 onTap: () {
+
+                  selectedMoviePosterURL.state = _movies[count].posterURL();
+
                   print(count.toString());
                 },
                 child: MovieTile(
@@ -204,7 +235,7 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
             );
-          });
+          }));
     } else {
       return const Center(
           child: CircularProgressIndicator(
